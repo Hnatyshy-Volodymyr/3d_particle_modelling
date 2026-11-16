@@ -319,11 +319,14 @@ int saveXYZ(const Particle particles[], int count)
 
         const char* species = (particles[i].type == 1) ? "N" : "O";
 
+        //Centred coordinate for .XYZ file.
+        //- L/2.0 - Half of box
+
         fprintf(file, "%s %.6f %.6f %.6f %.6f\n",
             species,
-            particles[i].x,
-            particles[i].y,
-            particles[i].z,
+            particles[i].x - L / 2.0,
+            particles[i].y - L / 2.0,
+            particles[i].z - L / 2.0,
             particles[i].radius);
     }
 
