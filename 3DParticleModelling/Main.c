@@ -31,7 +31,7 @@
 //PBC: 1 - axis on, 0 - axis off.
 #define PBC_FLAG_X 1
 #define PBC_FLAG_Y 1
-#define PBC_FLAG_Z 1
+#define PBC_FLAG_Z 0
 
 typedef struct {
     double x, y, z;
@@ -67,8 +67,9 @@ int translateCellParticle(int index, int pbcEnabled)
 
     index = index % NCELLS;
 
-    if (index < 0)
-        index += NCELLS;
+    if (index < 0) { index += NCELLS; }
+
+    if (index >= NCELLS) { index -= NCELLS; }
 
     return index;
 }
@@ -128,30 +129,30 @@ int canPlaceParticle(
     //ceil() - rounding number up
     int overlapCheckRange = (int)ceil((candidateParticle->radius + MAX_RADIUS) / (L / NCELLS));
 
-    for (int neighborIX = candidateIX - overlapCheckRange; neighborIX <= candidateIX + overlapCheckRange; neighborIX++) {
-        for (int neighborJY = candidateJY - overlapCheckRange; neighborJY <= candidateJY + overlapCheckRange; neighborJY++) {
-            for (int neighborKZ = candidateKZ - overlapCheckRange; neighborKZ <= candidateKZ + overlapCheckRange; neighborKZ++) {
+    for (int neighborCellIX = candidateIX - overlapCheckRange; neighborCellIX <= candidateIX + overlapCheckRange; neighborCellIX++) {
+        for (int neighborCellJY = candidateJY - overlapCheckRange; neighborCellJY <= candidateJY + overlapCheckRange; neighborCellJY++) {
+            for (int neighborCellKZ = candidateKZ - overlapCheckRange; neighborCellKZ <= candidateKZ + overlapCheckRange; neighborCellKZ++) {
 
-                int placedIX = translateCellParticle(neighborIX, PBC_FLAG_X);
-                int placedJY = translateCellParticle(neighborJY, PBC_FLAG_Y);
-                int placedKZ = translateCellParticle(neighborKZ, PBC_FLAG_Z);
+                int originalNeighborCellIX = translateCellParticle(neighborCellIX, PBC_FLAG_X);
+                int originalNeighborCellJY = translateCellParticle(neighborCellJY, PBC_FLAG_Y);
+                int originalNeighborCellKZ = translateCellParticle(neighborCellKZ, PBC_FLAG_Z);
 
-                if (placedIX == -1 || placedJY == -1 || placedKZ == -1) {
+                if (originalNeighborCellIX == -1 || originalNeighborCellJY == -1 || originalNeighborCellKZ == -1) {
                     continue;
                 }
 
-                for (int i = head[placedIX][placedJY][placedKZ]; i != -1; i = next[i]) {
+                for (int i = head[originalNeighborCellIX][originalNeighborCellJY][originalNeighborCellKZ]; i != -1; i = next[i]) {
 
                     Particle translatedParticleImage = particles[i];
 
-                    bool pbcUsedFlag = (neighborIX != placedIX || neighborJY != placedJY || neighborKZ != placedKZ);
+                    bool pbcUsedFlag = (neighborCellIX != originalNeighborCellIX || neighborCellJY != originalNeighborCellJY || neighborCellKZ != originalNeighborCellKZ);
 
                     //int pbc_used_count = 0;
 
                     // Creating particle image
-                    translatedParticleImage.x += (neighborIX - placedIX) * (L / NCELLS);
-                    translatedParticleImage.y += (neighborJY - placedJY) * (L / NCELLS);
-                    translatedParticleImage.z += (neighborKZ - placedKZ) * (L / NCELLS);
+                    translatedParticleImage.x += (neighborCellIX - originalNeighborCellIX) * (L / NCELLS);
+                    translatedParticleImage.y += (neighborCellJY - originalNeighborCellJY) * (L / NCELLS);
+                    translatedParticleImage.z += (neighborCellKZ - originalNeighborCellKZ) * (L / NCELLS);
 
                     if (particlesOverlap(candidateParticle, &translatedParticleImage)) {
                         if (pbcUsedFlag) {
