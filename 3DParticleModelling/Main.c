@@ -28,6 +28,11 @@
 #define NCELLS 10
 #define MAX_ATTEMPTS 10000000
 
+//PBC: 1 - axis on, 0 - axis off.
+#define PBC_FLAG_X 1
+#define PBC_FLAG_Y 1
+#define PBC_FLAG_Z 1
+
 typedef struct {
     double x, y, z;
     double radius;
@@ -49,13 +54,19 @@ int getCellIndex(double coordinate)
 
 /* If we need to access a cell outside the box, we jump to the opposite side of the box 
 and retrieve the cells and the particles within them from there*/
-int translateCellParticle(int index)
+int translateCellParticle(int index, int pbcEnabled)
 {
-    if (index < 0)
-        return index + NCELLS;
+    if (pbcEnabled == 0) {
+        if (index < 0 || index >= NCELLS)
+            return -1;
 
-    if (index >= NCELLS)
-        return index - NCELLS;
+        return index;
+    }
+
+    index = index % NCELLS;
+
+    if (index < 0)
+        index += NCELLS;
 
     return index;
 }
@@ -87,15 +98,15 @@ Particle generateParticle(int type)
 }
 
 // Check the distance between particle centers with using periodic boundary conditions
-int particlesOverlap(const Particle* a, const Particle* b)
+int particlesOverlap(const Particle* particleA, const Particle* particleB)
 {
-    double dx = a->x - b->x;
-    double dy = a->y - b->y;
-    double dz = a->z - b->z;
+    double dx = particleA->x - particleB->x;
+    double dy = particleA->y - particleB->y;
+    double dz = particleA->z - particleB->z;
 
     double r2 = dx * dx + dy * dy + dz * dz;
 
-    double minDistance = a->radius + b->radius;
+    double minDistance = particleA->radius + particleB->radius;
 
     return r2 < minDistance * minDistance;
 }
@@ -103,49 +114,51 @@ int particlesOverlap(const Particle* a, const Particle* b)
 // Check particles in the same and nearby cells
 int canPlaceParticle(
     const Particle particles[],
-    const Particle* candidate,
+    const Particle* candidateParticle,
     const int head[NCELLS][NCELLS][NCELLS],
     const int next[N],
-    int* pbc_used_counter)
+    int* pbcUsedCounter)
 {
-    int ix = getCellIndex(candidate->x);
-    int jy = getCellIndex(candidate->y);
-    int kz = getCellIndex(candidate->z);
+    int candidateIX = getCellIndex(candidateParticle->x);
+    int candidateJY = getCellIndex(candidateParticle->y);
+    int candidateKZ = getCellIndex(candidateParticle->z);
 
     //ceil() - rounding number up
-    int overlapCheckRange = (int)ceil((candidate->radius + MAX_RADIUS) / (L / NCELLS));
+    int overlapCheckRange = (int)ceil((candidateParticle->radius + MAX_RADIUS) / (L / NCELLS));
 
-    for (int x = ix - overlapCheckRange; x <= ix + overlapCheckRange; x++) {
-        for (int y = jy - overlapCheckRange; y <= jy + overlapCheckRange; y++) {
-            for (int z = kz - overlapCheckRange; z <= kz + overlapCheckRange; z++) {
+    for (int neighborIX = candidateIX - overlapCheckRange; neighborIX <= candidateIX + overlapCheckRange; neighborIX++) {
+        for (int neighborJY = candidateJY - overlapCheckRange; neighborJY <= candidateJY + overlapCheckRange; neighborJY++) {
+            for (int neighborKZ = candidateKZ - overlapCheckRange; neighborKZ <= candidateKZ + overlapCheckRange; neighborKZ++) {
 
-                //bx - tranclate x cordinate
-                int bx = translateCellParticle(x);
-                int by = translateCellParticle(y);
-                int bz = translateCellParticle(z);
+                int placedIX = translateCellParticle(neighborIX, PBC_FLAG_X);
+                int placedJY = translateCellParticle(neighborJY, PBC_FLAG_Y);
+                int placedKZ = translateCellParticle(neighborKZ, PBC_FLAG_Z);
 
-                // Each cell has a list of particle indices
-                for (int i = head[bx][by][bz]; i != -1; i = next[i]) {
+                if (placedIX == -1 || placedJY == -1 || placedKZ == -1) {
+                    continue;
+                }
 
-                    Particle image = particles[i];
+                for (int i = head[placedIX][placedJY][placedKZ]; i != -1; i = next[i]) {
 
-                    bool pbcUsedFlag = (x != bx || y != by || z != bz);
+                    Particle translatedParticleImage = particles[i];
+
+                    bool pbcUsedFlag = (neighborIX != placedIX || neighborJY != placedJY || neighborKZ != placedKZ);
 
                     //int pbc_used_count = 0;
 
                     // Creating particle image
-                    image.x += (x - bx) * (L / NCELLS);
-                    image.y += (y - by) * (L / NCELLS);
-                    image.z += (z - bz) * (L / NCELLS);
+                    translatedParticleImage.x += (neighborIX - placedIX) * (L / NCELLS);
+                    translatedParticleImage.y += (neighborJY - placedJY) * (L / NCELLS);
+                    translatedParticleImage.z += (neighborKZ - placedKZ) * (L / NCELLS);
 
-                    if (particlesOverlap(candidate, &image)) {
+                    if (particlesOverlap(candidateParticle, &translatedParticleImage)) {
                         if (pbcUsedFlag) {
-                            (*pbc_used_counter)++;
+                            (*pbcUsedCounter)++;
 
                             /*Counter for the number of particle deviations 
                             caused by the periodic application of boundary conditions*/
-                            if (*pbc_used_counter % 10000 == 0) {
-                                printf("PBC overlap rejection count: %d\n", *pbc_used_counter);
+                            if (*pbcUsedCounter % 10000 == 0) {
+                                printf("PBC overlap rejection count: %d\n", *pbcUsedCounter);
                             }
                         }
 
@@ -161,26 +174,26 @@ int canPlaceParticle(
 
 // Add the particle to the list for its cell
 void insertParticle(
-    int particle_index,
-    const Particle* particle,
+    int particleIndex,
+    const Particle* candidateParticle,
     int head[NCELLS][NCELLS][NCELLS],
     int next[N])
 {
-    int cx = getCellIndex(particle->x);
-    int cy = getCellIndex(particle->y);
-    int cz = getCellIndex(particle->z);
+    int candidateIX = getCellIndex(candidateParticle->x);
+    int candidateJY = getCellIndex(candidateParticle->y);
+    int candidateKZ = getCellIndex(candidateParticle->z);
 
-    next[particle_index] = head[cx][cy][cz];
-    head[cx][cy][cz] = particle_index;
+    next[particleIndex] = head[candidateIX][candidateJY][candidateKZ];
+    head[candidateIX][candidateJY][candidateKZ] = particleIndex;
 }
 
 // Generate a configuration without overlapping particles
-int generate_configuration(
+int generateConfiguration(
     Particle particles[],
     int head[NCELLS][NCELLS][NCELLS],
     int next[N],
     int* attempts,
-    int* pbc_used_counter)
+    int* pbcUsedCounter)
 {
     int count = 0;
     //Number of particles still to create
@@ -215,15 +228,15 @@ int generate_configuration(
         }
         */
 
-        Particle candidate = generateParticle(type);
+        Particle candidateParticle = generateParticle(type);
         (*attempts)++;
-        
-        if (!canPlaceParticle(particles, &candidate, head, next, pbc_used_counter)) {
+
+        if (!canPlaceParticle(particles, &candidateParticle, head, next, pbcUsedCounter)) {
             continue;
         }
 
-        particles[count] = candidate;
-        insertParticle(count, &candidate, head, next);
+        particles[count] = candidateParticle;
+        insertParticle(count, &candidateParticle, head, next);
 
         /*
         if (type == 1) {
@@ -298,10 +311,7 @@ int saveXYZ(const Particle particles[], int count)
     fprintf(file, "%d\n", count);
 
     fprintf(file,
-        "Lattice=\"%.6f 0 0 0 %.6f 0 0 0 %.6f\" "
-        "Properties=species:S:1:pos:R:3:Radius:R:1 "
-        "pbc=\"T T T\"\n",
-        L, L, L);
+        "Properties=species:S:1:pos:R:3:Radius:R:1\n");
 
     for (int i = 0; i < count; i++) {
 
@@ -331,13 +341,13 @@ int main(void)
     int head[NCELLS][NCELLS][NCELLS];
     int next[N];
     int attempts = 0;
-    int pbc_used_counter = 0;
+    int pbcUsedCounter = 0;
 
     // -1 means that the cell is empty
-    for (int x = 0; x < NCELLS; x++) {
-        for (int y = 0; y < NCELLS; y++) {
-            for (int z = 0; z < NCELLS; z++) {
-                head[x][y][z] = -1;
+    for (int iX = 0; iX < NCELLS; iX++) {
+        for (int jY = 0; jY < NCELLS; jY++) {
+            for (int kZ = 0; kZ < NCELLS; kZ++) {
+                head[iX][jY][kZ] = -1;
             }
         }
     }
@@ -349,8 +359,8 @@ int main(void)
     printf("Type 1: %d particles, diameter %.1f Angstroms\n",N1, DIAMETER_1);
     printf("Type 2: %d particles, diameter %.1f Angstroms\n\n",N2, DIAMETER_2);
 
-    int count = generate_configuration(
-        particles, head, next, &attempts, &pbc_used_counter);
+    int count = generateConfiguration(
+        particles, head, next, &attempts, &pbcUsedCounter);
 
     int type1Count = 0;
     int type2Count = 0;
