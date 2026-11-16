@@ -52,7 +52,7 @@ int getCellIndex(double coordinate)
     return index;
 }
 
-/* If we need to access a cell outside the box, we jump to the opposite side of the box 
+/* If we need to access a cell outside the box, we jump to the opposite side of the box
 and retrieve the cells and the particles within them from there*/
 int translateCellParticle(int index, int pbcEnabled)
 {
@@ -155,7 +155,7 @@ int canPlaceParticle(
                         if (pbcUsedFlag) {
                             (*pbcUsedCounter)++;
 
-                            /*Counter for the number of particle deviations 
+                            /*Counter for the number of particle deviations
                             caused by the periodic application of boundary conditions*/
                             if (*pbcUsedCounter % 10000 == 0) {
                                 printf("PBC overlap rejection count: %d\n", *pbcUsedCounter);
@@ -210,9 +210,9 @@ int generateConfiguration(
         /*Randomly selects which type to generate.
         If one type of particle has already been generated, we move on to the next.
 
-        P.S: I came up with the task myself. 
-        I created the problem myself. 
-        *AAAAAAAAH!* 
+        P.S: I came up with the task myself.
+        I created the problem myself.
+        *AAAAAAAAH!*
         I solved the problem myself...”
         */
 
@@ -354,10 +354,10 @@ int main(void)
 
     printf("Hard-sphere configuration generator\n");
     printf("Target particle count: %d\n", N);
-    printf("Box dimensions: %.1f x %.1f x %.1f Angstroms\n",L, L, L);
+    printf("Box dimensions: %.1f x %.1f x %.1f Angstroms\n", L, L, L);
 
-    printf("Type 1: %d particles, diameter %.1f Angstroms\n",N1, DIAMETER_1);
-    printf("Type 2: %d particles, diameter %.1f Angstroms\n\n",N2, DIAMETER_2);
+    printf("Type 1: %d particles, diameter %.1f Angstroms\n", N1, DIAMETER_1);
+    printf("Type 2: %d particles, diameter %.1f Angstroms\n\n", N2, DIAMETER_2);
 
     int count = generateConfiguration(
         particles, head, next, &attempts, &pbcUsedCounter);
