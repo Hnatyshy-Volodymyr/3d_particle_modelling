@@ -53,7 +53,9 @@ int getCellIndex(double coordinate)
 }
 
 /* If we need to access a cell outside the box, we jump to the opposite side of the box
-and retrieve the cells and the particles within them from there*/
+and retrieve the cells and the particles within them from there
+If PBC does not work for axis, we do not transpose the cells.
+*/
 int translateCellParticle(int index, int pbcEnabled)
 {
     if (pbcEnabled == 0) {
