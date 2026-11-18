@@ -10,10 +10,10 @@
 #include <time.h>
 #include <math.h>
 
-#define N1 50
-#define N2 450
+#define type_1Quantity 50
+#define type_2Quantity 450
 
-#define N (N1 + N2)
+#define N (type_1Quantity + type_2Quantity)
 
 #define L 10.0
 
@@ -31,7 +31,7 @@
 //PBC: 1 - axis on, 0 - axis off.
 #define PBC_FLAG_X 1
 #define PBC_FLAG_Y 1
-#define PBC_FLAG_Z 0
+#define PBC_FLAG_Z 1
 
 typedef struct {
     double x, y, z;
@@ -129,6 +129,8 @@ int canPlaceParticle(
     //ceil() - rounding number up
     int overlapCheckRange = (int)ceil((candidateParticle->radius + MAX_RADIUS) / (L / NCELLS));
 
+
+    //NeightborCell for candidateCell.
     for (int neighborCellIX = candidateIX - overlapCheckRange; neighborCellIX <= candidateIX + overlapCheckRange; neighborCellIX++) {
         for (int neighborCellJY = candidateJY - overlapCheckRange; neighborCellJY <= candidateJY + overlapCheckRange; neighborCellJY++) {
             for (int neighborCellKZ = candidateKZ - overlapCheckRange; neighborCellKZ <= candidateKZ + overlapCheckRange; neighborCellKZ++) {
@@ -143,25 +145,29 @@ int canPlaceParticle(
 
                 for (int i = head[originalNeighborCellIX][originalNeighborCellJY][originalNeighborCellKZ]; i != -1; i = next[i]) {
 
-                    Particle translatedParticleImage = particles[i];
+                    Particle periodicParticleImage = particles[i];
 
                     bool pbcUsedFlag = (neighborCellIX != originalNeighborCellIX || neighborCellJY != originalNeighborCellJY || neighborCellKZ != originalNeighborCellKZ);
 
                     //int pbc_used_count = 0;
 
                     // Creating particle image
-                    translatedParticleImage.x += (neighborCellIX - originalNeighborCellIX) * (L / NCELLS);
-                    translatedParticleImage.y += (neighborCellJY - originalNeighborCellJY) * (L / NCELLS);
-                    translatedParticleImage.z += (neighborCellKZ - originalNeighborCellKZ) * (L / NCELLS);
+                    periodicParticleImage.x += (neighborCellIX - originalNeighborCellIX) * (L / NCELLS);
+                    periodicParticleImage.y += (neighborCellJY - originalNeighborCellJY) * (L / NCELLS);
+                    periodicParticleImage.z += (neighborCellKZ - originalNeighborCellKZ) * (L / NCELLS);
 
-                    if (particlesOverlap(candidateParticle, &translatedParticleImage)) {
+                    if (particlesOverlap(candidateParticle, &periodicParticleImage)) {
                         if (pbcUsedFlag) {
                             (*pbcUsedCounter)++;
 
                             /*Counter for the number of particle deviations
                             caused by the periodic application of boundary conditions*/
-                            if (*pbcUsedCounter % 10000 == 0) {
-                                printf("PBC overlap rejection count: %d\n", *pbcUsedCounter);
+                            if (*pbcUsedCounter % 10000 == 0 && *pbcUsedCounter <= 50000) {
+                                printf("PBC overlap rejection count>=: %d\n", *pbcUsedCounter);
+                            } else if (*pbcUsedCounter % 100000 == 0 && *pbcUsedCounter <= 500000) {
+                                printf("PBC overlap rejection count>=: %d\n", *pbcUsedCounter);
+                            } else if (*pbcUsedCounter % 1000000 == 0 && *pbcUsedCounter <= 5000000) {
+                                printf("PBC overlap rejection count>=: %d\n", *pbcUsedCounter);
                             }
                         }
 
@@ -208,7 +214,7 @@ int generateConfiguration(
     while (count < N && *attempts < MAX_ATTEMPTS) {
         int type;
 
-        type = (count < N1) ? 1 : 2;
+        type = (count < type_1Quantity) ? 1 : 2;
 
         /*Randomly selects which type to generate.
         If one type of particle has already been generated, we move on to the next.
@@ -313,8 +319,7 @@ int saveXYZ(const Particle particles[], int count)
 
     fprintf(file, "%d\n", count);
 
-    fprintf(file,
-        "Properties=species:S:1:pos:R:3:Radius:R:1\n");
+    fprintf(file,"Properties=species:S:1:pos:R:3:Radius:R:1\n");
 
     for (int i = 0; i < count; i++) {
 
@@ -347,7 +352,7 @@ int main(void)
     int head[NCELLS][NCELLS][NCELLS];
     int next[N];
     int attempts = 0;
-    int pbcUsedCounter = 0;
+    int pbcRejectCounter = 0;
 
     // -1 means that the cell is empty
     for (int iX = 0; iX < NCELLS; iX++) {
@@ -362,11 +367,10 @@ int main(void)
     printf("Target particle count: %d\n", N);
     printf("Box dimensions: %.1f x %.1f x %.1f Angstroms\n", L, L, L);
 
-    printf("Type 1: %d particles, diameter %.1f Angstroms\n", N1, DIAMETER_1);
-    printf("Type 2: %d particles, diameter %.1f Angstroms\n\n", N2, DIAMETER_2);
+    printf("Type 1: %d particles, diameter %.1f Angstroms\n", type_1Quantity, DIAMETER_1);
+    printf("Type 2: %d particles, diameter %.1f Angstroms\n\n", type_2Quantity, DIAMETER_2);
 
-    int count = generateConfiguration(
-        particles, head, next, &attempts, &pbcUsedCounter);
+    int count = generateConfiguration(particles, head, next, &attempts, &pbcRejectCounter);
 
     int type1Count = 0;
     int type2Count = 0;
@@ -404,8 +408,8 @@ int main(void)
     }
 
     printf("Particles placed: %d / %d\n", count, N);
-    printf("Type 1 particles: %d / %d\n", type1Count, N1);
-    printf("Type 2 particles: %d / %d\n", type2Count, N2);
+    printf("Type 1 particles: %d / %d\n", type1Count, type_1Quantity);
+    printf("Type 2 particles: %d / %d\n", type2Count, type_2Quantity);
     printf("Number of attempts: %d\n", attempts);
     printf("Spatial cells: %d\n", NCELLS * NCELLS * NCELLS);
     //printf("Output file: particles.pdb\n");
