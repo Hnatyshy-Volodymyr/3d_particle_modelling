@@ -93,12 +93,26 @@ void runOneParticleSimulation(void)
 
     Particle* particle = &domain.particles[0];
 
+    double targetX, targetY, targetZ;
+
     printf("One particle simulation\n");
     printf("Box dimensions: %.1f x %.1f x %.1f Angstroms\n", L, L, L);
     printf("Particle type: %d\n", particle->type);
     printf("Particle radius: %.2f Angstroms\n", particle->radius);
-    printf("Initial position: (%.4f, %.4f, %.4f)\n",
-        particle->x, particle->y, particle->z);
+    printf("Initial position: (%.4f, %.4f, %.4f)\n",particle->x, particle->y, particle->z);
+
+    generateTargetCoordinates(&targetX, &targetY, &targetZ);
+
+    //Simulation cycle
+    for (int step = 0; step < TOTAL_STEPS; step++) {
+
+        if (moveParticleToTarget(particle, targetX, targetY, targetZ, STEP_SIZE)) {
+            generateTargetCoordinates(&targetX, &targetY, &targetZ);
+        }
+        if (step % 100 == 0) {
+            printf("Particle move to(res.of 100 step): (%.4f, %.4f, %.4f)\n", particle->x, particle->y, particle->z);
+        }
+    }
 
     if (!saveConfiguration(domain.particles, domain.particleCount)) {
         printf("Failed to save configuration.\n");

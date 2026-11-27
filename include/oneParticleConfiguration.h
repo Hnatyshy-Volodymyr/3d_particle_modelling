@@ -3,6 +3,10 @@
 
 #include "particle.h"
 
+#define STEP_SIZE 0.01
+/*In the future, we will replace the step size with speed, 
+and then use that to determine the displacement per unit of time.*/
+
 #define TIME_STEP 0.01
 #define TOTAL_STEPS 10000
 
