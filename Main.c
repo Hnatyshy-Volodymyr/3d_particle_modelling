@@ -4,6 +4,11 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
+#define CONFIGURATION_MODE 2
+
+#define HARD_SPHERE_CONFIGURATION 1
+#define ONE_PARTICLE_CONFIGURATION 2
+
 //#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,11 +17,10 @@
 #include "include/spatialDomain.h"
 #include "include/randomConfiguration.h"
 #include "include/output.h"
+#include "include/oneParticleConfiguration.h"
 
-int main(void)
+void runHardSphereConfiguration(void)
 {
-    srand(SEED);
-
     SpatialDomain domain;
     int attempts = 0;
     int pbcRejectCounter = 0;
@@ -51,7 +55,7 @@ int main(void)
     }
 
     if (!saveConfiguration(domain.particles, count)) {
-        return 1;
+        return;
     }
 
     if (count == N) {
@@ -72,6 +76,47 @@ int main(void)
     }
     else if (OUTPUT_FORMAT == OUTPUT_FORMAT_PDB) {
         printf("Output file: %sparticles.pdb\n", OUTPUT_DIRECTORY);
+    }
+}
+
+void runOneParticleSimulation(void)
+{
+    /*We do not run the Domain initialization 
+    because it includes the initialization of the Cell - Linked List, 
+    which we do not need for a single particle.*/
+
+    SpatialDomain domain;
+
+    domain.particleCount = 1;
+
+    domain.particles[0] = generateOneParticle();
+
+    Particle* particle = &domain.particles[0];
+
+    printf("One particle simulation\n");
+    printf("Box dimensions: %.1f x %.1f x %.1f Angstroms\n", L, L, L);
+    printf("Particle type: %d\n", particle->type);
+    printf("Particle radius: %.2f Angstroms\n", particle->radius);
+    printf("Initial position: (%.4f, %.4f, %.4f)\n",
+        particle->x, particle->y, particle->z);
+
+    if (!saveConfiguration(domain.particles, domain.particleCount)) {
+        printf("Failed to save configuration.\n");
+        return;
+    }
+
+    printf("Configuration saved successfully.\n");
+}
+
+int main(void)
+{
+    srand(SEED);
+
+    if (CONFIGURATION_MODE == HARD_SPHERE_CONFIGURATION) {
+        runHardSphereConfiguration();
+    }
+    else if (CONFIGURATION_MODE == ONE_PARTICLE_CONFIGURATION) {
+        runOneParticleSimulation();
     }
 
     return 0;

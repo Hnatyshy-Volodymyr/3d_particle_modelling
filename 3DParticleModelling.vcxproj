@@ -162,6 +162,7 @@
 		<ClCompile Include="src\spatialDomain.c" />
 		<ClCompile Include="src\randomConfiguration.c" />
 		<ClCompile Include="src\output.c" />
+		<ClCompile Include="src\oneParticleConfiguration.c" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -169,6 +170,7 @@
 		<ClInclude Include="include\spatialDomain.h" />
 		<ClInclude Include="include\randomConfiguration.h" />
 		<ClInclude Include="include\output.h" />
+		<ClInclude Include="include\oneParticleConfiguration.h" />
 	</ItemGroup>
 
 	<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
